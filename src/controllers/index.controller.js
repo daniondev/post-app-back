@@ -21,34 +21,49 @@ const readPosts = async (req, res) => {
 const createPost = async (req, res) => {
     const { nombre, descripcion } = req.body
 
+    let response = {
+        isValid: false
+    }
+
     if(nombre == ''){
-        res.status(400).json({message : 'El nombre no puede ser vacio'})
+        response.message = 'El nombre no puede ser vacio';
+        res.status(200).json(response)
         return false;
     }
 
     if(descripcion == ''){
-        res.status(400).json({message : 'La descripción no puede ser vacia'})
+        response.message = 'La descripción no puede ser vacia';
+        res.status(200).json(response)
         return false;
     }
 
     const strQuery = `INSERT INTO post (nombre, descripcion) 
-                    VALUES ($1, $2)`
+                    VALUES ($1, $2) RETURNING id `
 
-    await pool.query(strQuery, [nombre, descripcion])
+    const resQuery = await pool.query(strQuery, [nombre, descripcion])
     
-    res.status(200).json({
-        message: 'Post Agregado Correctamente',
-        body: req.body
-    })
+    req.body.id = resQuery.rows.at(0).id;
+    response.isValid = true;
+    response.message = 'Post Agregado Correctamente'
+    response.body = req.body
+
+    res.status(200).json(response)
 }
 
 const deletePost = async (req, res) => {
     const id = req.params.id
 
+    let response = {
+        isValid: false
+    }
+
     if(isNaN(parseInt(id))){
-        res.status(400).json({message : 'El id debe ser un número'})
+        response.message = 'El id debe ser un número';
+        res.status(400).json(response)
         return false;
     }
+
+    //TODO: Buscar si el id existe
 
     // Eliminado Lógico
     const strQuery = `UPDATE post  
@@ -57,14 +72,31 @@ const deletePost = async (req, res) => {
 
     await pool.query(strQuery, [id])
 
-    res.status(200).json({
-        message: 'Post Eliminado Correctamente',
-        body: req.body
-    })
+    response.isValid = true;
+    response.message = 'Post Eliminado Correctamente';
+    response.body = req.body;
+
+    res.status(200).json(response)
+}
+
+const readsPosts = async (req, res) => {
+    const limit = req.params.limit
+    const offset = req.params.offset
+
+    const strQuery = `SELECT id, nombre, descripcion 
+                    FROM post 
+                    WHERE activo = TRUE 
+                    LIMIT ${limit} 
+                    OFFSET ${offset} `
+
+    const response = await pool.query(strQuery)
+
+    res.status(200).json(response.rows)
 }
 
 module.exports = {
     readPosts,
     createPost,
-    deletePost
+    deletePost,
+    readsPosts
 }
